@@ -45,16 +45,19 @@ resource "google_project_iam_custom_role" "analyst" {
 # Bind Roles to Service Accounts
 # ------------------------
 resource "google_project_iam_member" "uploader_bind" {
+  project = var.project_id
   role   = google_project_iam_custom_role.uploader.name
   member = "serviceAccount:${google_service_account.uploader_sa.email}"
 }
 
 resource "google_project_iam_member" "processor_bind" {
+  project = var.project_id
   role   = google_project_iam_custom_role.processor.name
   member = "serviceAccount:${google_service_account.function_sa.email}"
 }
 
 resource "google_project_iam_member" "analyst_bind" {
+  project = var.project_id
   role   = google_project_iam_custom_role.analyst.name
   member = "serviceAccount:${google_service_account.analyst_sa.email}"
 }

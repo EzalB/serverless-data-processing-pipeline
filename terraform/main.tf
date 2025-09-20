@@ -18,7 +18,7 @@ resource "google_bigquery_dataset" "dataset" {
 resource "google_bigquery_table" "table" {
   dataset_id = google_bigquery_dataset.dataset.dataset_id
   table_id   = "processed_data"
-  schema     = file("${path.module}/../cloud_function/schema.json")
+  schema     = file("${path.module}/../cloud-function/schema.json")
 }
 
 # ------------------------
@@ -58,7 +58,7 @@ resource "google_storage_bucket" "function_bucket" {
 resource "google_storage_bucket_object" "function_zip" {
   name   = "function-source.zip"
   bucket = google_storage_bucket.function_bucket.name
-  source = "${path.module}/../cloud_function/function-source.zip"
+  source = "${path.module}/../cloud-function/function-source.zip"
 }
 
 resource "google_cloudfunctions2_function" "function" {

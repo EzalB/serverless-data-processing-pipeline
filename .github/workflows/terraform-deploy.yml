@@ -86,7 +86,7 @@ jobs:
 
       - name: Terraform Plan
         id: tf_plan
-        run: terraform plan -input=false -no-color -out=tfplan > tfplan.log
+        run: terraform plan -var="project_id=${{ secrets.GOOGLE_PROJECT }}" -input=false -no-color -out=tfplan > tfplan.log
 
       - name: Read Terraform Plan Output
         id: tf_plan_output
@@ -163,7 +163,7 @@ jobs:
         with:
           script: |
             const output = `## ✅ Terraform Apply successful
-            #### Terraform Apply Output for \\`${{ matrix.tfvars_file }}\\`
+            #### Terraform Apply Output
             <details>
             <summary>Show Output</summary>
 
@@ -187,7 +187,7 @@ jobs:
         with:
           script: |
             const output = `## ❌ Terraform Apply Failed \n\n
-            #### Terraform Apply Output for \\`${{ matrix.tfvars_file }}\\`
+            #### Terraform Apply Output
             <details>
             <summary>Show Output</summary>
 

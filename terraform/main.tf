@@ -63,7 +63,7 @@ resource "google_storage_bucket_object" "function_zip" {
 
 resource "google_cloudfunctions2_function" "function" {
   name        = "process-uploaded-file"
-  location    = ${var.region}
+  location    = var.region
   description = "Triggered by GCS upload, validates and loads data into BigQuery"
 
   build_config {

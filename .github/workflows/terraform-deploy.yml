@@ -2,7 +2,7 @@ name: Terraform GCP Infrastructure
 
 on:
   pull_request:
-    paths: [ 'terraform/env/**' ]
+    paths: [ 'terraform/**' ]
     branches: [ "main" ]
     types: [opened, synchronize, reopened, closed]
 

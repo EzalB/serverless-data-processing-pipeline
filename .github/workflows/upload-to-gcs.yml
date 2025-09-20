@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "sample_data.json"
+      - 'sample_data.json'
 
 jobs:
   upload:
@@ -14,10 +14,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Authenticate to GCP
+      - name: Authenticate to GCP (Workload Identity)
         uses: google-github-actions/auth@v2
+        id: 'auth'
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          token_format: 'access_token'
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PRVDR }}
+          service_account: ${{ secrets.GCP_TERRAFORM_INFRA_SA }}
+
+      - name: GCP auth failure comment
+        uses: actions/github-script@v6
+        if: ${{ failure() && steps.auth.conclusion == 'failure' }}
+        with:
+          script: |
+            const output = `## Failed to authenticate with GCP!\n\n
+            Ensure the Workload Identity provider is set up correctly, and that your GCP SA has the required permissions.
+            `;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2

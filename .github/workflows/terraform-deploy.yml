@@ -75,7 +75,7 @@ jobs:
 
       - name: Package Cloud Function
         run: |
-          cd cloud-function
+          cd ../cloud-function
           zip -r ../terraform/function-source.zip main.py requirements.txt schema.json
 
       - name: Terraform Init

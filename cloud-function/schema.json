@@ -1,0 +1,6 @@
+[
+  { "name": "id", "type": "STRING" },
+  { "name": "name", "type": "STRING" },
+  { "name": "amount", "type": "FLOAT" },
+  { "name": "date", "type": "STRING" }
+]

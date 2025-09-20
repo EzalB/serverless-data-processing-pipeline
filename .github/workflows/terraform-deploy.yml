@@ -1,0 +1,204 @@
+name: Terraform GCP Infrastructure
+
+on:
+  pull_request:
+    paths: [ 'terraform/env/**' ]
+    branches: [ "main" ]
+    types: [opened, synchronize, reopened, closed]
+
+env:
+  TF_WORKING_DIR: terraform
+  AWS_REGION: us-east-1
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform:
+    name: Terraform Plan / Apply
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Acknowledge applying changes
+        uses: actions/github-script@v6
+        if: ${{ github.event.pull_request.merged == true }}
+        with:
+          script: |
+            const output = `Applying pull request. Hold on to your seats... 🔥`;
+
+            github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: output
+            });
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Authenticate to GCP (Workload Identity)
+        uses: google-github-actions/auth@v2
+        id: 'auth'
+        with:
+          token_format: 'access_token'
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PRVDR }}
+          service_account: ${{ secrets.GCP_TERRAFORM_INFRA_SA }}
+
+      - name: GCP auth failure comment
+        uses: actions/github-script@v6
+        if: ${{ failure() && steps.auth.conclusion == 'failure' }}
+        with:
+          script: |
+            const output = `## Failed to authenticate with GCP!\n\n
+            Ensure the Workload Identity provider is set up correctly, and that your GCP SA has the required permissions.
+            `;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Configure gcloud
+        run: gcloud config set project $GOOGLE_PROJECT
+
+      - name: Package Cloud Function
+        run: |
+          cd cloud_function
+          zip -r ../terraform/function-source.zip main.py requirements.txt schema.json
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: tf_plan
+        run: terraform plan -var-file="dev.tfvars" -input=false -no-color -out=tfplan > tfplan.log
+
+      - name: Read Terraform Plan Output
+        id: tf_plan_output
+        run: |
+          echo 'status_out<<EOF' >> $GITHUB_OUTPUT
+          cat tfplan.log >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+      - name: Send Terraform plan output to PR comment
+        uses: actions/github-script@v6
+        env:
+          PLAN_OUTPUT: ${{ steps.tf_plan_output.outputs.status_out }}
+        with:
+          script: |
+            const output = `## ✅ Terraform Plan successful
+            #### Terraform Plan Output
+            <details>
+            <summary>Show Output</summary>
+
+            \`\`\`
+            ${{ env.PLAN_OUTPUT }}
+            \`\`\`
+            </details>`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Send Terraform plan output to PR comment (failure)
+        uses: actions/github-script@v6
+        if: ${{ steps.tf_plan.outcome == 'failure' }}
+        env:
+          PLAN_OUTPUT: ${{ steps.tf_plan_output.outputs.status_out }}
+        with:
+          script: |
+            const output = `## ❌ Terraform Plan Failed \n\n
+            #### Terraform Plan Output
+            <details>
+            <summary>Show Output</summary>
+
+            \`\`\`
+            ${{ env.PLAN_OUTPUT }}
+            \`\`\`
+            </details>`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Apply
+        id: tf_apply
+        if: github.event.pull_request.merged == true
+        run: terraform apply -no-color -input=false -auto-approve tfplan > tfapply.log
+
+      - name: Read Terraform Apply Output
+        id: tf_apply_output
+        if: github.event.pull_request.merged == true
+        run: |
+          echo 'status_out<<EOF' >> $GITHUB_OUTPUT
+          cat tfapply.log >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+      - name: Send Terraform apply output to PR comment
+        uses: actions/github-script@v6
+        if: github.event.pull_request.merged == true
+        env:
+          APPLY_OUTPUT: ${{ github.event.pull_request.merged == true }}
+        with:
+          script: |
+            const output = `## ✅ Terraform Apply successful
+            #### Terraform Apply Output for \\`${{ matrix.tfvars_file }}\\`
+            <details>
+            <summary>Show Output</summary>
+
+            \`\`\`
+            ${{ env.APPLY_OUTPUT }}
+            \`\`\`
+            </details>`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      - name: Send Terraform apply output to PR comment (failure)
+        uses: actions/github-script@v6
+        if: ${{ github.event.pull_request.merged == true && steps.tf_apply.outcome == 'failure' }}
+        env:
+          APPLY_OUTPUT: ${{ steps.tf_apply_output.outputs.status_out }}
+        with:
+          script: |
+            const output = `## ❌ Terraform Apply Failed \n\n
+            #### Terraform Apply Output for \\`${{ matrix.tfvars_file }}\\`
+            <details>
+            <summary>Show Output</summary>
+
+            \`\`\`
+            ${{ env.APPLY_OUTPUT }}
+            \`\`\`
+            </details>`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });

@@ -49,45 +49,45 @@ resource "google_service_account" "analyst_sa" {
 # ------------------------
 # Cloud Function (2nd gen)
 # ------------------------
-resource "google_storage_bucket" "function_bucket" {
-  name          = "${var.project_id}-function-code"
-  location      = var.region
-  force_destroy = true
-}
-
-resource "google_storage_bucket_object" "function_zip" {
-  name   = "function-source.zip"
-  bucket = google_storage_bucket.function_bucket.name
-  source = "${path.module}/../cloud-function/function-source.zip"
-}
-
-resource "google_cloudfunctions2_function" "function" {
-  name        = "process-uploaded-file"
-  location    = var.region
-  description = "Triggered by GCS upload, validates and loads data into BigQuery"
-
-  build_config {
-    runtime     = "python311"
-    entry_point = "process_file"
-    source {
-      storage_source {
-        bucket = google_storage_bucket.function_bucket.name
-        object = google_storage_bucket_object.function_zip.name
-      }
-    }
-  }
-
-  service_config {
-    service_account_email = google_service_account.function_sa.email
-    max_instance_count    = 3
-  }
-
-  event_trigger {
-    event_type = "google.cloud.storage.object.v1.finalized"
-    trigger_region = var.region
-    event_filters {
-      attribute = "bucket"
-      value     = google_storage_bucket.data_bucket.name
-    }
-  }
-}
+#resource "google_storage_bucket" "function_bucket" {
+#  name          = "${var.project_id}-function-code"
+#  location      = var.region
+#  force_destroy = true
+#}
+#
+#resource "google_storage_bucket_object" "function_zip" {
+#  name   = "function-source.zip"
+#  bucket = google_storage_bucket.function_bucket.name
+#  source = "${path.module}/../cloud-function/function-source.zip"
+#}
+#
+#resource "google_cloudfunctions2_function" "function" {
+#  name        = "process-uploaded-file"
+#  location    = var.region
+#  description = "Triggered by GCS upload, validates and loads data into BigQuery"
+#
+#  build_config {
+#    runtime     = "python311"
+#    entry_point = "process_file"
+#    source {
+#      storage_source {
+#        bucket = google_storage_bucket.function_bucket.name
+#        object = google_storage_bucket_object.function_zip.name
+#      }
+#    }
+#  }
+#
+#  service_config {
+#    service_account_email = google_service_account.function_sa.email
+#    max_instance_count    = 3
+#  }
+#
+#  event_trigger {
+#    event_type = "google.cloud.storage.object.v1.finalized"
+#    trigger_region = var.region
+#    event_filters {
+#      attribute = "bucket"
+#      value     = google_storage_bucket.data_bucket.name
+#    }
+#  }
+#}

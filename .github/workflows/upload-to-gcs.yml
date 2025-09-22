@@ -1,13 +1,10 @@
 name: Upload JSON to GCS
 
 on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - 'sample_data.json'
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [closed]
     branches: [ "main" ]
+    paths: [ 'sample-data.json' ]
   workflow_dispatch:
 
 permissions:
@@ -56,4 +53,4 @@ jobs:
 
       - name: Upload JSON to GCS
         run: |
-          gsutil cp sample_data.json gs://${{ secrets.GCS_BUCKET }}/
+          gsutil cp sample-data.json gs://${{ secrets.GCS_BUCKET }}/

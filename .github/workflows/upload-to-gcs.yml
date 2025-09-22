@@ -5,6 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - 'sample_data.json'
+  workflow_dispatch:
 
 jobs:
   upload:

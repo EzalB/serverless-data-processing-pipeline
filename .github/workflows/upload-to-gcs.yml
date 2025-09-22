@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [closed]
     branches: [ "main" ]
-    paths: [ 'sample-data.json' ]
+    paths: [ '**.json' ]
   workflow_dispatch:
 
 permissions:

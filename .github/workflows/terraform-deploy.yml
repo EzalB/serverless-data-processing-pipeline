@@ -155,6 +155,8 @@ jobs:
           cat tfapply.log >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
+          cat tfapply.log
+
       - name: Send Terraform apply output to PR comment
         uses: actions/github-script@v6
         if: github.event.pull_request.merged == true

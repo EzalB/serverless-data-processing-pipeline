@@ -46,6 +46,11 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Debug - list files
+        run: |
+          pwd
+          ls -l
+
       - name: Upload JSON to GCS
         run: |
           gsutil cp sample_data.json gs://${{ secrets.GCS_BUCKET }}/

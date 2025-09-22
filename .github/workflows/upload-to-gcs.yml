@@ -1,10 +1,10 @@
 name: Upload JSON to GCS
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches: [ "main" ]
-    paths:
-      - 'sample_data.json'
+    paths: [ 'sample-data.json' ]
   workflow_dispatch:
 
 permissions:
@@ -46,6 +46,11 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Debug - list files
+        run: |
+          pwd
+          ls -l
+
       - name: Upload JSON to GCS
         run: |
-          gsutil cp sample_data.json gs://${{ secrets.GCS_BUCKET }}/
+          gsutil cp sample-data.json gs://${{ secrets.GCS_BUCKET }}/

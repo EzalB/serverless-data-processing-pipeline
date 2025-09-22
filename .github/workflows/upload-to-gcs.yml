@@ -7,6 +7,11 @@ on:
       - 'sample_data.json'
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
 jobs:
   upload:
     runs-on: ubuntu-latest

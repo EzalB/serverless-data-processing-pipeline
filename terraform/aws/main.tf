@@ -2,7 +2,7 @@
 # S3 Bucket for JSON uploads
 # ------------------------
 resource "aws_s3_bucket" "data_bucket" {
-  bucket        = "${var.project_name}-data-bucket"
+  bucket        = "${var.project_id}-data-bucket"
   force_destroy = true
 }
 
@@ -10,7 +10,7 @@ resource "aws_s3_bucket" "data_bucket" {
 # S3 Bucket for Lambda code
 # ------------------------
 resource "aws_s3_bucket" "lambda_bucket" {
-  bucket        = "${var.project_name}-lambda-bucket"
+  bucket        = "${var.project_id}-lambda-bucket"
   force_destroy = true
 }
 

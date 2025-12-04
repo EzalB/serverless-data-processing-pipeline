@@ -4,7 +4,7 @@ variable "region" {
   default     = "us-east-1"
 }
 
-variable "project_name" {
+variable "project_id" {
   description = "Project name prefix for AWS resources"
   type        = string
   default     = "serverless-arch"

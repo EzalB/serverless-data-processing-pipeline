@@ -359,6 +359,8 @@ jobs:
 
           cat tfapply.log
 
+          cat tfapply.log
+
       - name: Send Terraform apply output to PR comment
         uses: actions/github-script@v6
         if: github.event.pull_request.merged == true

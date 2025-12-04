@@ -42,7 +42,8 @@ jobs:
 
   aws-terraform:
     name: AWS Terraform Plan / Apply
-    if: needs.detect-env.outputs.aws == 'true'
+    needs: detect-env
+    if: ${{ always() && needs.detect-env.outputs.aws == 'true' }}
     runs-on: ubuntu-latest
 
     defaults:
@@ -207,7 +208,8 @@ jobs:
 
   gcp-terraform:
     name: GCP Terraform Plan / Apply
-    if: needs.detect-env.outputs.gcp == 'true'
+    needs: detect-env
+    if: ${{ always() && needs.detect-env.outputs.gcp == 'true' }}
     runs-on: ubuntu-latest
 
     defaults:

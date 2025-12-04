@@ -24,9 +24,11 @@ jobs:
       aws: ${{ steps.set.outputs.aws }}
       gcp: ${{ steps.set.outputs.gcp }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - id: set
+      - name: Set Working Directory
+        id: set
         run: |
           if ls terraform/aws/*.tf 1> /dev/null 2>&1; then
             echo "aws=true" >> $GITHUB_OUTPUT
@@ -39,6 +41,9 @@ jobs:
           else
             echo "gcp=false" >> $GITHUB_OUTPUT
           fi
+
+          echo "AWS: $aws"
+          echo "GCP: $gcp"
 
   aws-terraform:
     name: AWS Terraform Plan / Apply

@@ -42,8 +42,8 @@ jobs:
             echo "gcp=false" >> $GITHUB_OUTPUT
           fi
 
-          echo "AWS: $aws"
-          echo "GCP: $gcp"
+          echo "AWS=${aws}"
+          echo "GCP=${gcp}"
 
   aws-terraform:
     name: AWS Terraform Plan / Apply
@@ -84,6 +84,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Package AWS Lambda function
+        run: |
+          cd ../../lambda-function
+          zip -r function.zip main.py schema.json
+
       - name: Terraform Init
         run: terraform init -input=false
 
@@ -92,7 +97,7 @@ jobs:
 
       - name: Terraform Plan
         id: tf_plan
-        run: terraform plan -var="project_id="serverless-arch" -input=false -no-color -out=tfplan > tfplan.log
+        run: terraform plan -var="project_id=${{ secrets.AWS_PROJECT }}" -input=false -no-color -out=tfplan > tfplan.log
 
       - name: Read Terraform Plan Output
         id: tf_plan_output
@@ -272,7 +277,7 @@ jobs:
 
       - name: Package Cloud Function
         run: |
-          cd ../cloud-function
+          cd ../../cloud-function
           zip -r function-source.zip main.py requirements.txt schema.json
 
       - name: Terraform Init

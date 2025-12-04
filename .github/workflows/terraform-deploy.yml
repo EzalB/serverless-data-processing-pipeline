@@ -32,18 +32,19 @@ jobs:
         run: |
           if ls terraform/aws/*.tf 1> /dev/null 2>&1; then
             echo "aws=true" >> $GITHUB_OUTPUT
+            echo "aws=true"
           else
             echo "aws=false" >> $GITHUB_OUTPUT
+            echo "aws=false"
           fi
 
           if ls terraform/gcp/*.tf 1> /dev/null 2>&1; then
             echo "gcp=true" >> $GITHUB_OUTPUT
+            echo "gcp=true"
           else
             echo "gcp=false" >> $GITHUB_OUTPUT
+            echo "gcp=false"
           fi
-
-          echo "AWS=${aws}"
-          echo "GCP=${gcp}"
 
   aws-terraform:
     name: AWS Terraform Plan / Apply
@@ -219,7 +220,8 @@ jobs:
   gcp-terraform:
     name: GCP Terraform Plan / Apply
     needs: detect-env
-    if: ${{ always() && needs.detect-env.outputs.gcp == 'true' }}
+    # if: ${{ always() && needs.detect-env.outputs.gcp == 'true' }}
+    if: false
     runs-on: ubuntu-latest
 
     defaults:

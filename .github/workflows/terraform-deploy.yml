@@ -1,4 +1,4 @@
-name: Terraform GCP Infrastructure
+name: Terraform Infrastructure Pipeline
 
 on:
   pull_request:

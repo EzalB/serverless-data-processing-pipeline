@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket         = "tf-state-serverless-pipeline"
+    bucket         = "serverless-pipeline-tf-state"
     key            = "aws/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-locks"

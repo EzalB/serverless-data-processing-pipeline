@@ -1,0 +1,36 @@
+name: Upload JSON to S3
+
+on:
+  pull_request:
+    types: [closed]
+    branches: ["main"]
+    paths: ['**.json']
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        id: aws-auth
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE }}
+          aws-region: 'us-east-1'
+
+      - name: Debug - list files
+        run: |
+          pwd
+          ls -l
+
+      - name: Upload JSON to S3
+        run: |
+          aws s3 cp sample-data.json s3://${{ secrets.S3_BUCKET }}/

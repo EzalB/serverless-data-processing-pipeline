@@ -24,14 +24,34 @@ resource "aws_iam_policy" "uploader_policy" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]
-      Resource = [
-        aws_s3_bucket.data_bucket.arn,
-        "${aws_s3_bucket.data_bucket.arn}/*"
-      ]
-    }]
+    Statement = [
+      {
+        Sid      = "UploaderObjectAccess"
+        Effect   = "Allow"
+        Action   = [
+          "s3:PutObject",
+          "s3:GetObject"
+        ]
+        Resource = [
+          aws_s3_bucket.data_bucket.arn,
+          "${aws_s3_bucket.data_bucket.arn}/*"
+        ]
+      },
+      {
+        Sid      = "UploaderBucketAccess"
+        Effect   = "Allow"
+        Action   = [
+          "s3:ListBucket",
+          "s3:ListBucketVersions",
+          "s3:GetBucketAcl",
+          "s3:GetBucketTagging"
+        ]
+        Resource = [
+          aws_s3_bucket.data_bucket.arn,
+          "${aws_s3_bucket.data_bucket.arn}/*"
+        ]
+      }
+    ]
   })
 }
 

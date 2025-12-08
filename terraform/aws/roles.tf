@@ -52,25 +52,6 @@ resource "aws_iam_policy" "uploader_policy" {
           aws_s3_bucket.data_bucket.arn,
           "${aws_s3_bucket.data_bucket.arn}/*"
         ]
-      },
-      {
-        "Sid": "AllowTerraformReadIAMResources",
-        "Effect": "Allow",
-        "Action": [
-          "iam:GetPolicy",
-          "iam:GetPolicyVersion",
-          "iam:ListPolicyVersions",
-          "iam:ListPolicies",
-          "iam:ListAttachedRolePolicies",
-          "iam:GetRole",
-          "iam:GetRolePolicy",
-          "iam:ListRolePolicies",
-          "iam:ListPolicyTags"
-        ],
-        "Resource": [
-          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/*",
-          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*"
-        ]
       }
     ]
   })

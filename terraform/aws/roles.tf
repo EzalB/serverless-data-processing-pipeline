@@ -18,6 +18,28 @@ resource "aws_iam_role" "lambda_role" {
   })
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_code_s3_attach" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = aws_iam_policy.lambda_code_s3_access.arn
+}
+
+resource "aws_iam_policy" "lambda_code_s3_access" {
+  name = "LambdaCodeS3AccessPolicy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = "arn:aws:s3:::serverless-arch-lambda-bucket/lambda/function.zip"
+      }
+    ]
+  })
+}
+
 # ------------------------
 # Custom IAM Policy: Uploader
 # ------------------------

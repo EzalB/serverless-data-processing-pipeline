@@ -122,6 +122,7 @@ resource "aws_lambda_function" "processor" {
   timeout = 10
 }
 
+
 # ------------------------
 # S3 → Lambda Trigger
 # ------------------------

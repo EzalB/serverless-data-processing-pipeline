@@ -45,7 +45,29 @@ resource "aws_sns_topic" "notifications" {
 # SQS Queue
 # ------------------------
 resource "aws_sqs_queue" "processing_queue" {
-  name = "data-processed-queue"
+  name                      = "data-processed-queue"
+  delay_seconds             = 60
+  max_message_size          = 262144
+  message_retention_seconds = 86400
+  receive_wait_time_seconds = 10
+
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.unprocessed_data_queue_deadletter.arn
+    maxReceiveCount     = 4
+  })
+}
+
+resource "aws_sqs_queue" "unprocessed_data_queue_deadletter" {
+  name = "unprocessed-data-deadletter-queue"
+}
+
+resource "aws_sqs_queue_redrive_allow_policy" "unprocessed_data_redrive_allow_policy" {
+  queue_url = aws_sqs_queue.unprocessed_data_queue_deadletter.id
+
+  redrive_allow_policy = jsonencode({
+    redrivePermission = "byQueue",
+    sourceQueueArns   = [aws_sqs_queue.processing_queue.arn]
+  })
 }
 
 # ------------------------

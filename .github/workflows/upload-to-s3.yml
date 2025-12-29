@@ -6,6 +6,11 @@ on:
     branches: ["main"]
     paths: ['**.json']
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run without uploading to S3"
+        required: false
+        default: "false"
 
 permissions:
   id-token: write
@@ -13,11 +18,41 @@ permissions:
   pull-requests: write
 
 jobs:
-  upload:
+  upload-json:
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
+    env:
+      AWS_REGION: us-east-1
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      S3_PREFIX: lambda/
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Detect changed JSON files
+        id: json_files
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | grep '\.json$' || true)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Fail if no JSON files found
+        if: steps.json_files.outputs.files == ''
+        run: |
+          echo "❌ No JSON files to upload"
+          exit 1
+
+      - name: Validate JSON files
+        run: |
+          for file in ${{ steps.json_files.outputs.files }}; do
+            echo "Validating $file"
+            jq empty "$file"
+          done
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -32,5 +67,66 @@ jobs:
           ls -l
 
       - name: Upload JSON to S3
+        if: inputs.dry_run != 'true'
+        id: upload-to-s3
         run: |
-          aws s3 cp sample-data.json s3://${{ secrets.S3_BUCKET }}/
+          set -e
+          for file in ${{ steps.json_files.outputs.files }}; do
+            echo "Uploading $file..."
+            aws s3 cp "$file" "s3://${S3_BUCKET}/${S3_PREFIX}$(basename $file)"
+          done
+
+      - name: Verify S3 upload
+        if: inputs.dry_run != 'true'
+        run: |
+          for file in ${{ steps.json_files.outputs.files }}; do
+            LOCAL_MD5=$(md5sum "$file" | awk '{print $1}')
+            S3_ETAG=$(aws s3api head-object \
+              --bucket "$S3_BUCKET" \
+              --key "${S3_PREFIX}$(basename $file)" \
+              --query ETag --output text | tr -d '"')
+
+            if [ "$LOCAL_MD5" != "$S3_ETAG" ]; then
+              echo "❌ Checksum mismatch for $file"
+              exit 1
+            fi
+            echo "✅ Verified $file"
+          done
+          
+      - name: Comment on PR (success)
+        if: success() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "✅ JSON files validated and uploaded to S3 successfully."
+            })
+
+      - name: Comment on PR (failure)
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "❌ JSON upload failed. Please check the workflow logs."
+            })
+
+      - name: Comment on PR (cancelled)
+        if: cancelled() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "❌ JSON upload cancelled. Please check the workflow logs."
+            })
+
+

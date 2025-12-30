@@ -48,7 +48,7 @@ def lambda_handler(event, context):
         else:
             records = [data]
 
-        for record in data:
+        for record in records:
             validate_json(record, schema)
 
         # Insert records into DynamoDB

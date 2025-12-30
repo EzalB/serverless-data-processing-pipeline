@@ -120,6 +120,13 @@ resource "aws_lambda_function" "processor" {
   runtime = "python3.11"
   role    = aws_iam_role.lambda_role.arn
   timeout = 10
+
+  environment {
+    variables = {
+      TABLE_NAME    = aws_dynamodb_table.processed_data.name
+      SNS_TOPIC_ARN = aws_sns_topic.notifications.arn
+    }
+  }
 }
 
 

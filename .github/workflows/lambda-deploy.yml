@@ -1,0 +1,99 @@
+name: Deploy Lambda Function Code
+
+on:
+  push:
+    paths:
+      - "lambda-function/**"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  LAMBDA_BUCKET: ${{ secrets.AWS_LAMBDA_CODE_BUCKET }}
+  LAMBDA_FUNCTION_NAME: ${{ secrets.AWS_LAMBDA_FUNCTION_NAME }}
+  LAMBDA_ALIAS: prod
+  
+jobs:
+  deploy-lambda:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate schema.json encoding (no BOM)
+        run: |
+          if grep -q $'\xef\xbb\xbf' lambda-function/schema.json; then
+            echo "❌ schema.json contains UTF-8 BOM. Please save as UTF-8 without BOM."
+            exit 1
+          fi
+
+      - name: Capture current Lambda alias version
+        id: current
+        run: |
+          set -e
+          VERSION=$(aws lambda get-alias \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --name "$LAMBDA_ALIAS" \
+            --query FunctionVersion \
+            --output text)
+          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current alias version: $VERSION"
+
+      - name: Build Lambda ZIP
+        run: |
+          set -e
+          cd lambda-function
+          rm -f function.zip
+          zip -X function.zip main.py schema.json
+          unzip -l function.zip
+
+      - name: Upload ZIP to S3
+        run: |
+          aws s3 cp lambda-function/function.zip \
+            s3://${LAMBDA_BUCKET}/lambda/function.zip \
+            --force
+
+      - name: Deploy new Lambda version
+        id: deploy
+        run: |
+          set -e
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --s3-bucket "$LAMBDA_BUCKET" \
+            --s3-key "lambda/function.zip"
+
+          NEW_VERSION=$(aws lambda publish-version \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --query Version \
+            --output text)
+
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Published new version: $NEW_VERSION"
+
+      - name: Update alias to new version
+        run: |
+          set -e
+          aws lambda update-alias \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --name "$LAMBDA_ALIAS" \
+            --function-version "${{ steps.deploy.outputs.new_version }}"
+
+      - name: Rollback alias on failure
+        if: failure()
+        run: |
+          echo "⚠️ Deployment failed. Rolling back alias..."
+          aws lambda update-alias \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --name "$LAMBDA_ALIAS" \
+            --function-version "${{ steps.current.outputs.current_version }}"
+

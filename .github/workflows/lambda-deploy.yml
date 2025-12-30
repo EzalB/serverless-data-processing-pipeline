@@ -30,13 +30,33 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Validate schema.json encoding (no BOM)
+      - name: Detect UTF-8 BOM in schema.json
+        id: bom_check
         run: |
           if grep -q $'\xef\xbb\xbf' lambda-function/schema.json; then
-            echo "❌ schema.json contains UTF-8 BOM. Please save as UTF-8 without BOM."
-            exit 1
+            echo "bom=true" >> $GITHUB_OUTPUT
+            echo "⚠️ UTF-8 BOM detected in schema.json"
+          else
+            echo "bom=false" >> $GITHUB_OUTPUT
+            echo "✅ schema.json encoding is clean"
           fi
 
+      - name: Fix UTF-8 BOM in schema.json
+        if: steps.bom_check.outputs.bom == 'true'
+        run: |
+          echo "🔧 Removing UTF-8 BOM from schema.json"
+          sed -i '1s/^\xEF\xBB\xBF//' lambda-function/schema.json
+
+          echo "🔍 Verifying schema.json after fix"
+          jq empty lambda-function/schema.json
+
+      - name: Assert schema.json is BOM-free
+        run: |
+          if grep -q $'\xef\xbb\xbf' lambda-function/schema.json; then
+            echo "❌ BOM still present after attempted fix"
+            exit 1
+          fi
+      
       - name: Capture current Lambda alias version
         id: current
         run: |

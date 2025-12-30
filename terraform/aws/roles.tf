@@ -30,11 +30,20 @@ resource "aws_iam_policy" "lambda_code_s3_access" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "ReadLambdaCodeZip"
         Effect = "Allow"
         Action = [
           "s3:GetObject"
         ]
         Resource = "arn:aws:s3:::serverless-arch-lambda-bucket/lambda/function.zip"
+      },
+      {
+        Sid    = "ReadUploadedJsonFiles"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = "arn:aws:s3:::serverless-arch-data-bucket/*"
       }
     ]
   })

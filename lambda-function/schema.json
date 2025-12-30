@@ -1,22 +1,6 @@
-[
-  {
-    "name": "id",
-    "type": "string",
-    "required": true
-  },
-  {
-    "name": "name",
-    "type": "string",
-    "required": true
-  },
-  {
-    "name": "email",
-    "type": "string",
-    "required": true
-  },
-  {
-    "name": "created_at",
-    "type": "string",
-    "required": true
-  }
+﻿[
+  { "name": "id" },
+  { "name": "name" },
+  { "name": "amount" },
+  { "name": "date" }
 ]

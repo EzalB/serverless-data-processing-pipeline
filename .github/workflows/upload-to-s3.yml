@@ -36,9 +36,14 @@ jobs:
       - name: Detect changed JSON files
         id: json_files
         run: |
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | grep '\.json$' || true)
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            find . -type f -name "*.json" ! -path "./lambda-function/schema.json" ! -path "./cloud-function/schema.json" > json_files.txt
+          else
+            git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep '\.json$' > json_files.txt || true
+          fi
+
           echo "files<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+          cat json_files.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Fail if no JSON files found
@@ -49,10 +54,10 @@ jobs:
 
       - name: Validate JSON files
         run: |
-          for file in ${{ steps.json_files.outputs.files }}; do
+          while IFS= read -r file; do
             echo "Validating $file"
             jq empty "$file"
-          done
+          done <<< "${{ steps.json_files.outputs.files }}"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4

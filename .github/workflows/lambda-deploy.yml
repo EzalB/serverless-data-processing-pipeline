@@ -2,6 +2,7 @@ name: Deploy Lambda Function Code
 
 on:
   pull_request:
+    types: [closed]
     paths:
       - "lambda-function/**"
     branches: [ "main" ]

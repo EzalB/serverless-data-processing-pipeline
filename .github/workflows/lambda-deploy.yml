@@ -103,11 +103,18 @@ jobs:
         id: deploy
         run: |
           set -e
+          
+          echo "Updating Lambda function code..."
           aws lambda update-function-code \
             --function-name "$LAMBDA_FUNCTION_NAME" \
             --s3-bucket "$LAMBDA_BUCKET" \
             --s3-key "lambda/function.zip"
 
+          echo "Waiting for Lambda update to complete..."
+          aws lambda wait function-updated \
+            --function-name "$LAMBDA_FUNCTION_NAME"
+
+          echo "Publishing new Lambda version..."
           NEW_VERSION=$(aws lambda publish-version \
             --function-name "$LAMBDA_FUNCTION_NAME" \
             --query Version \
@@ -127,7 +134,7 @@ jobs:
       - name: Rollback alias on failure
         if: failure()
         run: |
-          echo "⚠️ Deployment failed. Rolling back alias..."
+          echo "Deployment failed. Rolling back alias..."
           aws lambda update-alias \
             --function-name "$LAMBDA_FUNCTION_NAME" \
             --name "$LAMBDA_ALIAS" \

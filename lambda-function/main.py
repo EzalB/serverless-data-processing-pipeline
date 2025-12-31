@@ -4,6 +4,7 @@ import boto3
 import uuid
 import time
 from urllib.parse import unquote_plus
+from decimal import Decimal
 
 # AWS Clients
 s3 = boto3.client("s3")
@@ -36,7 +37,7 @@ def lambda_handler(event, context):
         response = s3.get_object(Bucket=bucket, Key=key)
         content = response["Body"].read().decode("utf-8")
 
-        data = json.loads(content)
+        data = json.loads(content, parse_float=Decimal)
 
         # Load schema from Lambda package
         with open("schema.json") as f:

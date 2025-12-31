@@ -85,7 +85,7 @@ jobs:
             --output text)
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
           echo "Current alias version: $VERSION"
-      
+
       - name: Build Lambda ZIP
         run: |
           set -e

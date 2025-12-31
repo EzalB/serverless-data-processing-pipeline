@@ -1,9 +1,11 @@
 name: Deploy Lambda Function Code
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     paths:
       - "lambda-function/**"
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
@@ -56,7 +58,22 @@ jobs:
             echo "❌ BOM still present after attempted fix"
             exit 1
           fi
-      
+
+      - name: Ensure Lambda alias exists
+        run: |
+          set -e
+          if aws lambda get-alias \
+              --function-name "$LAMBDA_FUNCTION_NAME" \
+              --name "$LAMBDA_ALIAS" >/dev/null 2>&1; then
+            echo "✅ Alias $LAMBDA_ALIAS already exists"
+          else
+            echo "⚠️ Alias $LAMBDA_ALIAS not found. Creating it..."
+            aws lambda create-alias \
+              --function-name "$LAMBDA_FUNCTION_NAME" \
+              --name "$LAMBDA_ALIAS" \
+              --function-version '$LATEST'
+          fi
+
       - name: Capture current Lambda alias version
         id: current
         run: |

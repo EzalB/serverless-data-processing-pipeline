@@ -56,7 +56,22 @@ jobs:
             echo "❌ BOM still present after attempted fix"
             exit 1
           fi
-      
+
+      - name: Ensure Lambda alias exists
+        run: |
+          set -e
+          if aws lambda get-alias \
+              --function-name "$LAMBDA_FUNCTION_NAME" \
+              --name "$LAMBDA_ALIAS" >/dev/null 2>&1; then
+            echo "✅ Alias $LAMBDA_ALIAS already exists"
+          else
+            echo "⚠️ Alias $LAMBDA_ALIAS not found. Creating it..."
+            aws lambda create-alias \
+              --function-name "$LAMBDA_FUNCTION_NAME" \
+              --name "$LAMBDA_ALIAS" \
+              --function-version '$LATEST'
+          fi
+
       - name: Capture current Lambda alias version
         id: current
         run: |
@@ -68,7 +83,7 @@ jobs:
             --output text)
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
           echo "Current alias version: $VERSION"
-
+      
       - name: Build Lambda ZIP
         run: |
           set -e

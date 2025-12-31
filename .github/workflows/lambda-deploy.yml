@@ -1,9 +1,10 @@
 name: Deploy Lambda Function Code
 
 on:
-  push:
+  pull_request:
     paths:
       - "lambda-function/**"
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:

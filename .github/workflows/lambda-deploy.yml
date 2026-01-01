@@ -36,10 +36,10 @@ jobs:
         run: |
           if grep -q $'\xef\xbb\xbf' lambda-function/schema.json; then
             echo "bom=true" >> $GITHUB_OUTPUT
-            echo "⚠️ UTF-8 BOM detected in schema.json"
+            echo "UTF-8 BOM detected in schema.json"
           else
             echo "bom=false" >> $GITHUB_OUTPUT
-            echo "✅ schema.json encoding is clean"
+            echo "schema.json encoding is clean"
           fi
 
       - name: Fix UTF-8 BOM in schema.json

@@ -244,6 +244,7 @@ It is equally valuable as:
 
 ## 📁 Repository Structure
 
+```text
 serverless-data-processing-pipeline/
 ├── terraform/
 │   ├── gcp/
@@ -252,6 +253,3 @@ serverless-data-processing-pipeline/
 ├── lambda-function/
 ├── .github/workflows/
 └── README.md
-
-
-

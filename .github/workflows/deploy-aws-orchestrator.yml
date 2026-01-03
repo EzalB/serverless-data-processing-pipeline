@@ -1,0 +1,71 @@
+name: Deploy AWS Java Orchestrator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/aws-java-orchestrator/**
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: aws-java-orchestrator
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password \
+            | docker login --username AWS \
+              --password-stdin \
+              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t $ECR_REPO:sha-${{ github.sha }} \
+            apps/aws-java-orchestrator
+
+      - name: Tag & Push
+        run: |
+          docker tag $ECR_REPO:sha-${{ github.sha }} \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
+
+          docker push \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
+
+      - name: Update Lambda Image
+        run: |
+          aws lambda update-function-code \
+            --function-name aws-java-orchestrator \
+            --image-uri \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
+
+          aws lambda wait function-updated \
+            --function-name aws-java-orchestrator
+
+      - name: Publish Version & Update Alias
+        run: |
+          VERSION=$(aws lambda publish-version \
+            --function-name aws-java-orchestrator \
+            --query Version --output text)
+
+          aws lambda update-alias \
+            --function-name aws-java-orchestrator \
+            --name prod \
+            --function-version $VERSION

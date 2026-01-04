@@ -8,7 +8,7 @@ COPY gradle gradle
 COPY build.gradle settings.gradle ./
 
 # Grant execute permission
-RUN CHMOD +x gradlew
+RUN chmod +x gradlew
 
 # Copy source
 COPY src ./src

@@ -111,4 +111,3 @@ resource "aws_lambda_alias" "prod" {
   function_version = "$LATEST"
 }
 
-

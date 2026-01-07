@@ -157,7 +157,7 @@ jobs:
       - name: Terraform Apply
         id: tf_apply
         if: github.event.pull_request.merged == true
-        run: terraform apply -no-color -input=false -var="orchestrator_image_tag=sha-${{ github.sha }}" -auto-approve tfplan > tfapply.log
+        run: terraform apply -no-color -input=false -auto-approve tfplan > tfapply.log
 
       - name: Read Terraform Apply Output
         id: tf_apply_output

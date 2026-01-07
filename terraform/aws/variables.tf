@@ -9,3 +9,8 @@ variable "project_id" {
   type        = string
   default     = "serverless-arch"
 }
+
+variable "orchestrator_image_tag" {
+  description = "Docker image tag for AWS Java orchestrator"
+  type        = "string"
+}

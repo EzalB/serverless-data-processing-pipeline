@@ -10,6 +10,28 @@ resource "aws_ecr_repository" "orchestrator" {
   }
 }
 
+resource "aws_ecr_lifecycle_policy" "orchestrator" {
+  repository = aws_ecr_repository.orchestrator.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 5 images"
+        selection = {
+          tagStatus   = "tagged"
+          tagPrefixList = ["sha-"]
+          countType   = "imageCountMoreThan"
+          countNumber = 5
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
+
 # ------------------------
 # IAM Role for Lambda
 # ------------------------
@@ -62,7 +84,8 @@ resource "aws_iam_role_policy" "orchestrator_lambda_policy" {
 resource "aws_lambda_function" "orchestrator" {
   function_name = "aws-java-orchestrator"
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.orchestrator.repository_url}:latest"
+  
+  image_uri     = "${aws_ecr_repository.orchestrator.repository_url}:${var.orchestrator_image_tag}"
 
   role    = aws_iam_role.orchestrator_lambda_role.arn
   timeout = 30

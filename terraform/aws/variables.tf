@@ -12,5 +12,5 @@ variable "project_id" {
 
 variable "orchestrator_image_tag" {
   description = "Docker image tag for AWS Java orchestrator"
-  type        = "string"
+  type        = string
 }

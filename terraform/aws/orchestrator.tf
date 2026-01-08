@@ -85,11 +85,11 @@ resource "aws_lambda_function" "orchestrator" {
   function_name = "aws-java-orchestrator"
   package_type  = "Image"
   
-  image_uri     = "${aws_ecr_repository.orchestrator.repository_url}:${var.orchestrator_image_tag}"
+  image_uri     = "${aws_ecr_repository.orchestrator.repository_url}:${var.orchestrator_bootstrap_image}"
 
-  role    = aws_iam_role.orchestrator_lambda_role.arn
-  timeout = 30
-  memory_size = 512
+  role          = aws_iam_role.orchestrator_lambda_role.arn
+  timeout       = 30
+  memory_size   = 512
 
   environment {
     variables = {

@@ -14,13 +14,16 @@ permissions:
 env:
   AWS_REGION: us-east-1
   ECR_REPO: aws-java-orchestrator
+  FUNCTION_NAME: aws-java-orchestrator
+  ALIAS_NAME: prod
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Configure AWS (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -35,6 +38,16 @@ jobs:
               --password-stdin \
               ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
 
+      - name: Capture current alias version
+        id: current
+        run: |
+          VERSION=$(aws lambda get-alias \
+            --function-name $FUNCTION_NAME \
+            --name $ALIAS_NAME \
+            --query FunctionVersion \
+            --output text)
+          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+      
       - name: Build Docker image
         run: |
           docker build \
@@ -49,23 +62,45 @@ jobs:
           docker push \
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
 
-      - name: Update Lambda Image
+      - name: Verify image exists
+        run: |
+          aws ecr describe-images \
+            --repository-name $ECR_REPO \
+            --image-ids imageTag=sha-${{ github.sha }}
+      
+      - name: Update Lambda image
         run: |
           aws lambda update-function-code \
-            --function-name aws-java-orchestrator \
+            --function-name $FUNCTION_NAME \
             --image-uri \
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
 
           aws lambda wait function-updated \
-            --function-name aws-java-orchestrator
+            --function-name $FUNCTION_NAME
 
-      - name: Publish Version & Update Alias
+      - name: Publish version
+        id: publish
         run: |
           VERSION=$(aws lambda publish-version \
-            --function-name aws-java-orchestrator \
-            --query Version --output text)
-
+            --function-name $FUNCTION_NAME \
+            --query Version \
+            --output text)
+          
+          echo "new_version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Update Alias
+        run: |
           aws lambda update-alias \
-            --function-name aws-java-orchestrator \
-            --name prod \
-            --function-version $VERSION
+            --function-name $FUNCTION_NAME \
+            --name $ALIAS_NAME \
+            --function-version ${{ steps.publish.outputs.new_version }}
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "⚠️ Deployment failed. Rolling back alias..."
+          aws lambda update-alias \
+            --function-name $FUNCTION_NAME \
+            --name $ALIAS_NAME \
+            --function-version ${{ steps.current.outputs.current_version }}
+            

@@ -10,7 +10,8 @@ variable "project_id" {
   default     = "serverless-arch"
 }
 
-variable "orchestrator_image_tag" {
-  description = "Docker image tag for AWS Java orchestrator"
+variable "orchestrator_bootstrap_image" {
+  description = "Initial docker image tag for Lambda creation for AWS Java orchestrator"
   type        = string
+  default     = "bootstrap"
 }

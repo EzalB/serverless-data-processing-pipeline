@@ -2,12 +2,14 @@ package com.ezalb.aws_java_orchestrator.controller;
 
 import com.ezalb.aws_java_orchestrator.model.ProcessRequest;
 import com.ezalb.aws_java_orchestrator.model.ProcessResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/")
 public class OrchestratorController {
@@ -21,6 +23,9 @@ public class OrchestratorController {
     public ResponseEntity<ProcessResponse> process(
             @RequestBody ProcessRequest request
     ) {
+        log.info("Processing file={}, schema={}",
+             request.filename(), request.schemaVersion());
+        
         ProcessResponse response = new ProcessResponse(
                 UUID.randomUUID().toString(),
                 request.filename(),

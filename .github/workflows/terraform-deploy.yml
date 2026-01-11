@@ -104,7 +104,7 @@ jobs:
         id: tf_plan_output
         run: |
           terraform show -no-color tfplan \
-            | sed -n '/Terraform will perform the following actions:/,$p' \
+            | sed -n '/Terraform used the selected providers to generate the following execution/,$p' \
             > tfplan_changes.log
 
           echo 'status_out<<EOF' >> $GITHUB_OUTPUT

@@ -265,8 +265,6 @@ resource "aws_lambda_alias" "prod" {
   function_version = "$LATEST"
 }
 
-
-
 # ------------------------
 # SQS → Java Orchestrator Trigger
 # ------------------------
@@ -277,3 +275,4 @@ resource "aws_lambda_event_source_mapping" "orchestrator_sqs_trigger" {
   batch_size       = 5
   enabled          = true
 }
+

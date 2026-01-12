@@ -16,7 +16,7 @@ RUN ./gradlew bootJar --no-daemon
 FROM public.ecr.aws/lambda/java:21
 COPY --from=build /app/build/libs/app.jar ${LAMBDA_TASK_ROOT}
 
-ADD https://github.com/awslabs/aws-lambda-web-adapter/releases/latest/download/aws-lambda-web-adapter /opt/extensions/aws-lambda-web-adapter
+ADD https://github.com/awslabs/aws-lambda-web-adapter/releases/download/v0.8.5/aws-lambda-web-adapter-linux-amd64 /opt/extensions/aws-lambda-web-adapter
 RUN chmod +x /opt/extensions/aws-lambda-web-adapter
 
 ENV AWS_LAMBDA_EXEC_WRAPPER=/opt/extensions/aws-lambda-web-adapter

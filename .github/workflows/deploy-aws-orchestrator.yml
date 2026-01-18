@@ -41,12 +41,33 @@ jobs:
       - name: Capture current alias version
         id: current
         run: |
+          set +e
+
+          aws lambda get-function \
+          --function-name "$FUNCTION_NAME" \
+          > /dev/null 2>&1
+          
+          if [ $FUNCTION_EXISTS -ne 0 ]; then
+            echo "Lambda function does not exist. Skipping alias lookup."
+            echo "function_exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Lambda function exists. Checking alias."
+
           VERSION=$(aws lambda get-alias \
             --function-name $FUNCTION_NAME \
             --name $ALIAS_NAME \
             --query FunctionVersion \
             --output text)
+          
+          if [ $? -ne 0 ]; then
+            echo "Alias does not exist or failed to fetch alias."
+            exit 1
+          fi
+
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "function_exists=true" >> $GITHUB_OUTPUT
       
       - name: Build Docker image
         run: |

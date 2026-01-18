@@ -1,0 +1,106 @@
+name: Deploy AWS Python Orchestrator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/aws-python-orchestrator/**
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: aws-python-orchestrator
+  FUNCTION_NAME: aws-python-orchestrator
+  ALIAS_NAME: prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ORCH_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password \
+            | docker login --username AWS \
+              --password-stdin \
+              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+
+      - name: Capture current alias version
+        id: current
+        run: |
+          VERSION=$(aws lambda get-alias \
+            --function-name $FUNCTION_NAME \
+            --name $ALIAS_NAME \
+            --query FunctionVersion \
+            --output text)
+          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t $ECR_REPO:sha-${{ github.sha }} \
+            apps/aws-python-orchestrator
+
+      - name: Tag & Push
+        run: |
+          docker tag $ECR_REPO:sha-${{ github.sha }} \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
+
+          docker push \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
+
+      - name: Verify image exists
+        run: |
+          aws ecr describe-images \
+            --repository-name $ECR_REPO \
+            --image-ids imageTag=sha-${{ github.sha }}
+      
+      - name: Update Lambda image
+        run: |
+          aws lambda update-function-code \
+            --function-name $FUNCTION_NAME \
+            --image-uri \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
+
+          aws lambda wait function-updated \
+            --function-name $FUNCTION_NAME
+
+      - name: Publish version
+        id: publish
+        run: |
+          VERSION=$(aws lambda publish-version \
+            --function-name $FUNCTION_NAME \
+            --query Version \
+            --output text)
+          
+          echo "new_version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Update Alias
+        run: |
+          aws lambda update-alias \
+            --function-name $FUNCTION_NAME \
+            --name $ALIAS_NAME \
+            --function-version ${{ steps.publish.outputs.new_version }}
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "⚠️ Deployment failed. Rolling back alias..."
+          aws lambda update-alias \
+            --function-name $FUNCTION_NAME \
+            --name $ALIAS_NAME \
+            --function-version ${{ steps.current.outputs.current_version }}
+            

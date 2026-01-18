@@ -1,6 +1,6 @@
 # Serverless Data Processing Pipeline (Multi-Cloud: GCP + AWS)
 
-This project demonstrates a **cloud-native, serverless and event-driven data ingestion and processing pipeline** implemented consistently across AWS and GCP.
+This project demonstrates a **cloud-native, serverless and event-driven data platform** implemented consistently across Google Cloud Platform (GCP) and Amazon Web Services (AWS).
 
 The pipeline is designed to showcase:
 
@@ -8,9 +8,10 @@ The pipeline is designed to showcase:
 - Infrastructure as Code (Terraform)
 - Secure IAM / RBAC-first design
 - Resilient, decoupled architectures
-- Production-grade CI/CD using GitHub Actions
+- Artifact-driven CI/CD using GitHub Actions
+- Multi-cloud parity without vendor lock-in
 
-At a high level, the system ingests JSON files, validates and processes them automatically, stores structured data, and notifies downstream consumers — without managing any servers.
+At a high level, the system ingests JSON files, validates and processes them automatically, persists structured data, and triggers downstream execution services — without managing any servers.
 
 ---
 
@@ -32,7 +33,7 @@ This same logical pipeline is implemented independently on GCP and AWS, proving 
 - JSON files uploaded to a GCS bucket. Uploading a file to this bucket triggers the Cloud Function.
 - Entry point for data ingestion, durable and event-driven.
 
-### 2. **Cloud Function**
+### 2. **Cloud Function (Ingestion)**
 - Written in **Python 3.11**.
 - Responsibilities:
     - Downloads the uploaded JSON file.
@@ -40,10 +41,10 @@ This same logical pipeline is implemented independently on GCP and AWS, proving 
     - Loads valid data into **BigQuery**.
     - Publishes a **Pub/Sub message** upon completion.
 
-📂 Function Source:
-- `main.py` → Function logic.
-- `requirements.txt` → Dependencies.
-- `schema.json` → Validation schema for JSON files.
+    📂 Function Source:
+    - `main.py` → Function logic.
+    - `requirements.txt` → Dependencies.
+    - `schema.json` → Validation schema for JSON files.
 
 ### 3. **BigQuery**
 - Validated data is loaded into an analytics-ready table.
@@ -55,7 +56,16 @@ This same logical pipeline is implemented independently on GCP and AWS, proving 
 - Event notification backbone, enables asynchronous consumers.
 - Topic: `data-processed-topic`
 
-### 5. **IAM & Service Accounts**
+### 5. **Cloud Run Orchestrator (Go)**
+- Stateless execution service.
+- Receives Pub/Sub push events.
+- Performs orchestration, routing, and metadata enrichment
+- Artifact-driven deployment via container images
+
+📂 Function Source:
+- `apps/gcp-go-orchestrator/`
+
+### 6. **IAM & Service Accounts**
 - **Uploader SA** → For uploading JSON files.
 - **Function Processor SA** → For Cloud Function execution (storage, BQ, Pub/Sub access).
 - **Analyst SA** → For querying processed BigQuery data.
@@ -68,7 +78,7 @@ This same logical pipeline is implemented independently on GCP and AWS, proving 
 - JSON files uploaded to a S3 bucket. Uploading a file to this bucket triggers the Cloud Function.
 - Entry point for data ingestion, durable and event-driven.
 
-### 2. **AWS Lambda**
+### 2. **AWS Lambda (Ingestion)**
 - Written in **Python 3.11**.
 - Responsibilities:
     - Downloads the uploaded JSON file.
@@ -76,9 +86,9 @@ This same logical pipeline is implemented independently on GCP and AWS, proving 
     - Loads valid data into **DynamoDB**.
     - Publishes a message using **SNS & SQS** upon completion.
 
-📂 Function Source:
-- `main.py` → Function logic.
-- `schema.json` → Validation schema for JSON files.
+    📂 Function Source:
+    - `main.py` → Function logic.
+    - `schema.json` → Validation schema for JSON files.
 
 ### 3. **Amazon DynamoDB**
 - Validated data is loaded into an analytics-ready table.
@@ -90,7 +100,16 @@ This same logical pipeline is implemented independently on GCP and AWS, proving 
 - Event notification backbone, enables asynchronous consumers.
 - Topic: `data-processed-topic` | Queue: `data-processed-queue`
 
-### 5. **IAM & Service Accounts**
+### 5. **Lambda Orchestrator (Python, Container-based)**
+- Runs as a container image from ECR
+- Triggered by SQS events
+- Acts as execution and control plane
+- Stateless, versioned, independently deployable
+
+📂 Source:
+- `apps/aws-python-orchestrator/`
+
+### 6. **IAM & Service Accounts**
 - **Uploader SA** → For uploading JSON files.
 - **Function Processor SA** → For Lambda Function execution.
 
@@ -98,103 +117,42 @@ This same logical pipeline is implemented independently on GCP and AWS, proving 
 
 ## 🏗️ Deployment (AWS & GCP)
 
-This project is deployed entirely using Infrastructure as Code (Terraform) and automated CI/CD pipelines (GitHub Actions).
-Both cloud environments follow the same principles but use cloud-native services.
+This project is deployed entirely via Terraform and GitHub Actions, following an artifact-driven, immutable deployment model.
 
-### Prerequisites
-
-**Common**
-- GitHub repository with GitHub Actions enabled
-- Terraform >= 1.6
-- No long-lived cloud credentials (OIDC-based authentication)
-
-**GCP Requirements**
-- GCP project with
-    - Workload Identity Federation configured
-    - GCS bucket for Terraform remote state
-- GitHub secrets:
-    - WORKLOAD_IDENTITY_PRVDR
-    - GCP_TERRAFORM_INFRA_SA
-    - GOOGLE_PROJECT
-
-**AWS Requirements**
-- AWS account with:
-    - IAM OIDC provider for GitHub
-    - S3 bucket for Terraform remote state
-    - DynamoDB table for Terraform state locking
-- GitHub secrets:
-    - AWS_TERRAFORM_ROLE
-    - AWS_LAMBDA_CODE_BUCKET
-    - AWS_LAMBDA_FUNCTION_NAME
-
-- GCP project with **Workload Identity Federation** configured.
-- GitHub repository with secrets:
-    - `WORKLOAD_IDENTITY_PRVDR`
-    - `GCP_TERRAFORM_INFRA_SA`
-
-### Deployment Flow
-
-1. Clone repo:
-   ```bash
-   git clone https://github.com/EzalB/serverless-data-processing-pipeline.git
-   cd serverless-data-processing-pipeline
-
-2. Make infrastructure or code changes
-    - Terraform changes under `terraform/`
-    - Function code under `cloud-function/` or `lambda-function/`
-
-3. Open a Pull Request
-    - GitHub Actions automatically runs: Terraform init, Terraform validate, Terraform plan
-    - Terraform Plan output is posted as a PR comment
-
-4. Merge to main
-    - Terraform apply provisions or updates infrastructure
-    - Serverless functions are deployed automatically
-    - No manual steps required
+### Key Principles
+- OIDC-based authentication (no static credentials)
+- Terraform remote state with locking
+- Docker images as immutable artifacts
+- Alias-based Lambda deployments
+- Fully automated plan → apply workflows
 
 ---
 
 ## 📊 Example End-toEnd Workflow
 
 ### GCP
-
-1. Upload file by either manually running pipeline `Upload JSON to GCS` or running below command:
-    ```bash
-    gsutil cp sample.json gs://<project-id>-data-bucket/
-
-2. Cloud Function execution:
-    - Validates JSON against schema
-    - Inserts records into BigQuery
-
-3. Pub/Sub notification:
-    - Message published after processing status
+- Upload JSON to GCS
+- Cloud Function validates and loads BigQuery
+- Pub/Sub publishes event
+- Cloud Run orchestrator consumes event
 
 ### AWS
-
-1. Upload file by either manually running pipeline `Upload JSON to S3` or running below command:
-    ```bash
-    aws s3 cp sample-data.json s3://<data-bucket>/lambda/sample-data.json
-
-2. Lambda execution:
-    - Validates JSON against schema
-    - Inserts records into DynamoDB
-
-3. SNS → SQS notification:
-    - Message published and delivered reliably
+- Upload JSON to S3
+- Lambda validates and writes DynamoDB
+- SNS publishes event → SQS
+- Lambda orchestrator processes event
 
 ---
 
 ## 🔒 Security Considerations
 
-Security is implemented as a first-class design principle across both clouds.
+Security is implemented as a first-class design principle:
 
-- Least-privilege IAM roles
-    - Separate roles for infrastructure provisioning and runtime execution
-- OIDC-based authentication
-    - GitHub Actions authenticates without static credentials
-- Scoped permissions
-    - Each service can only access what it strictly needs
-- No secrets in code or pipelines
+- Least-privilege IAM everywhere
+- Separate infra vs runtime roles
+- OIDC-based GitHub Actions authentication
+- No secrets stored in code or pipelines
+- Fully auditable and reproducible deployments
 
 This aligns with Zero Trust and modern enterprise security practices.
 
@@ -202,43 +160,32 @@ This aligns with Zero Trust and modern enterprise security practices.
 
 ## 🌟 Key Benefits
 
-- Fully Serverless
-    - No servers to manage, patch, or scale
-    - Pay only for actual execution
-- Event-Driven Architecture
-    - Processing happens only when data arrives
-    - Naturally scalable and efficient
-- Secure by Design
-    - Identity-first access using IAM & RBAC
-    - No hardcoded credentials or secrets
-- Resilient & Decoupled
-    - Messaging (Pub/Sub, SNS/SQS) prevents tight coupling
-    - Failures are isolated and recoverable
-- Multi-Cloud Ready
-    - Same logical architecture on AWS and GCP
-    - Demonstrates cloud-agnostic design thinking
-- Production-Grade CI/CD
-    - Automated testing, planning, and deployment
-    - Safe rollouts with visibility and auditability
+- Fully Serverless – zero infrastructure management
+- Event-Driven – scalable and efficient by design
+- Resilient – decoupled via messaging systems
+- Secure by Default – identity-first architecture
+- Multi-Cloud Ready – same logical design on AWS & GCP
+- Production-Grade CI/CD – safe, observable deployments
 
 ---
 
 ## 🧠 Why This Project Matters
 
-This project reflects real-world architectures used in production, not just service demos.
+This project mirrors real-world production architectures, not cloud service demos.
 
 It demonstrates how modern teams:
 
-- Ingest data safely and automatically
-- Enforce security at the identity layer
-- Scale systems without operational overhead
-- Build cloud-agnostic platforms using DevOps principles
+- Build scalable data ingestion platforms
+- Separate ingestion from execution
+- Enforce security using identity, not secrets
+- Operate serverless systems at scale
+- Design cloud-agnostic platforms
 
-It is equally valuable as:
+It serves as:
 
 - A learning reference
 - A portfolio-grade DevOps project
-- A blueprint for serverless data pipelines
+- A blueprint for modern serverless pipelines
 
 ---
 
@@ -251,5 +198,8 @@ serverless-data-processing-pipeline/
 │   └── aws/
 ├── cloud-function/
 ├── lambda-function/
+├── apps/
+│   ├── gcp-go-orchestrator/
+│   └── aws-python-orchestrator/
 ├── .github/workflows/
 └── README.md

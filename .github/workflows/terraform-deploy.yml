@@ -98,13 +98,17 @@ jobs:
 
       - name: Terraform Plan
         id: tf_plan
-        run: terraform plan -var="project_id=${{ secrets.AWS_PROJECT }}" -input=false -no-color -out=tfplan > tfplan.log
+        run: terraform plan -var="project_id=${{ secrets.AWS_PROJECT }}" -input=false -no-color -out=tfplan
 
-      - name: Read Terraform Plan Output
+      - name: Render Terraform Plan (changes only)
         id: tf_plan_output
         run: |
+          terraform show -no-color tfplan \
+            | sed -n '/Terraform used the selected providers to generate the following execution/,$p' \
+            > tfplan_changes.log
+
           echo 'status_out<<EOF' >> $GITHUB_OUTPUT
-          cat tfplan.log >> $GITHUB_OUTPUT
+          cat tfplan_changes.log >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
       - name: Send Terraform plan output to PR comment

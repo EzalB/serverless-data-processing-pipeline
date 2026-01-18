@@ -38,48 +38,89 @@ jobs:
               --password-stdin \
               ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
 
+      - name: Check if Function exists
+        id: lambda_function_exists
+        run: |
+          set +e
+
+          aws lambda get-function \
+          --function-name "$FUNCTION_NAME" \
+          > /dev/null 2>&1
+          
+          FUNCTION_EXISTS=$?
+
+          if [ $FUNCTION_EXISTS -ne 0 ]; then
+            echo "Lambda function does not exist. Skipping alias lookup."
+            echo "function_exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "function_exists=true" >> $GITHUB_OUTPUT
+        
       - name: Capture current alias version
         id: current
+        if: ${{ steps.lambda_function_exists.outputs.function_exists == true }}
         run: |
+          set +e
+
+          echo "Lambda function exists. Checking alias."
+
           VERSION=$(aws lambda get-alias \
             --function-name $FUNCTION_NAME \
             --name $ALIAS_NAME \
             --query FunctionVersion \
             --output text)
+          
+          if [ $? -ne 0 ]; then
+            echo "Alias does not exist or failed to fetch alias."
+            exit 1
+          fi
+
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Set Docker image tag
+        run: |
+          if [ "${{ steps.lambda_function_exists.outputs.function_exists }}" = "true" ]; then
+            echo "IMAGE_TAG=sha-${{ github.sha }}" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=bootstrap" >> $GITHUB_ENV
+          fi
+
       
       - name: Build Docker image
         run: |
           docker build \
-            -t $ECR_REPO:sha-${{ github.sha }} \
+            -t $ECR_REPO:$IMAGE_TAG \
             apps/aws-python-orchestrator
 
       - name: Tag & Push
         run: |
-          docker tag $ECR_REPO:sha-${{ github.sha }} \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
+          docker tag $ECR_REPO:$IMAGE_TAG \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:$IMAGE_TAG
 
           docker push \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:$IMAGE_TAG
 
       - name: Verify image exists
         run: |
           aws ecr describe-images \
             --repository-name $ECR_REPO \
-            --image-ids imageTag=sha-${{ github.sha }}
+            --image-ids imageTag=$IMAGE_TAG
       
       - name: Update Lambda image
+        if: ${{ steps.lambda_function_exists.outputs.function_exists == true }}
         run: |
           aws lambda update-function-code \
             --function-name $FUNCTION_NAME \
             --image-uri \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:sha-${{ github.sha }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:$IMAGE_TAG
 
           aws lambda wait function-updated \
             --function-name $FUNCTION_NAME
 
       - name: Publish version
         id: publish
+        if: ${{ steps.lambda_function_exists.outputs.function_exists == true }}
         run: |
           VERSION=$(aws lambda publish-version \
             --function-name $FUNCTION_NAME \
@@ -89,6 +130,7 @@ jobs:
           echo "new_version=$VERSION" >> $GITHUB_OUTPUT
       
       - name: Update Alias
+        if: ${{ steps.lambda_function_exists.outputs.function_exists == true }}
         run: |
           aws lambda update-alias \
             --function-name $FUNCTION_NAME \
@@ -103,4 +145,3 @@ jobs:
             --function-name $FUNCTION_NAME \
             --name $ALIAS_NAME \
             --function-version ${{ steps.current.outputs.current_version }}
-            
